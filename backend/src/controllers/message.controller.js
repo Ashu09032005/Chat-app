@@ -2,7 +2,7 @@ import User from "../models/user.models.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js"; // Make sure this path is correct
 // Make sure this path is correct
-
+import { getReceiverSocketId, io } from "../lib/socket.js";
 export const getUsersForSidebar = async (req, res) => {
     try {
         const loggedInUserId = req.user._id;
@@ -43,11 +43,15 @@ export const sendMessage = async (req, res) => {
         let imageUrl = "";
         if (image) {
             const uploadResponse = await cloudinary.uploader.upload(image);
-            imageUrl = uploadResponse.secure_url;
+            imageUrl = uploadResponse.secure_url;//Cloudinary's response includes a property called secure_url, which is the HTTPS link to the uploaded image.
         }
         const newMessage = new Message({ senderId, receiverId, text, image: imageUrl });
         await newMessage.save();
         //todo:realtime functionality=>socket.io
+        const receiverSocketId = getReceiverSocketId(receiverId);
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("newMessage", newMessage);
+        }
         res.status(201).json(newMessage);
 
 
